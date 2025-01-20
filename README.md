@@ -1,9 +1,6 @@
 
 # 🧠 ML-Project: Machine Learning! 🤖
 
-Welcome to my **ML-Project**! 
-
-
 
 ## 🍄 Project 2: Tree predictors for binary classification 🍄
 
