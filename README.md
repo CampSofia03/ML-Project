@@ -19,4 +19,4 @@ All data-related things are in `data.py`. To view data stats, use
 python data.py
 ```
 
-The dataset paper is at https://www.nature.com/articles/s41598-021-87602-3.pdf
+The dataset paper is at https://shorturl.at/3SLVm
