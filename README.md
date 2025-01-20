@@ -1,6 +1,5 @@
 
-# 🧠 ML-Project: Machine Learning! 🤖 
-## 🍄 Project 2: Tree predictors for binary classification 🍄
+# 🧠🤖 ML-Project: Tree predictors for binary classification 🍄🍄
 
 
 ## 📦 Installing Requirements
