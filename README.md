@@ -1,6 +1,7 @@
 
 # 🧠🤖 ML-Project: Tree predictors for binary classification 🍄🍄
 
+Predicting the Edibility of Mushrooms: A Classification Task to Distinguish Between Edible and Poisonous Varieties Using a Classification Rule.
 
 ## 📦 Installing Requirements
 
