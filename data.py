@@ -78,19 +78,11 @@ def main():
 
     return dataset_dict
 
-# ------------------------
-# Mail Function
-# ------------------------
 
-dataset_dict = main()
-
-# Ora puoi usare dataset_dict
-print("Dataset visualization:\n")
-print(dataset_dict["X"].head())
+# Load Dataset
+dataset_dict = fetch_dataset()
+dataset_dict["X"].head()
 
 print("\nNumber of samples:", len(dataset_dict["X"]))
 print("\nInfo variabiles:")
-print(dataset_dict["variables"].head())
-
-print("\nMetadata:")
-print(dataset_dict["metadata"])
+print(dataset_dict["variables"])
