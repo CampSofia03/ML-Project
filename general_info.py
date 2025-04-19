@@ -145,12 +145,17 @@ plt.title("Correlation Heatmap")
 plt.show()
 
 
+# ------------------------
+# Correlation Matrix 
+# ------------------------
+
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Encoding categorical into numeric value
 df_encoded = dataset_dict["X"].apply(pd.Categorical).apply(lambda x: x.cat.codes)
+df_encoded['target'] = dataset_dict["y"].apply(pd.Categorical).apply(lambda x: x.cat.codes)
 
 # Correlation Matrix
 corr_matrix = df_encoded.corr()
