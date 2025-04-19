@@ -41,9 +41,9 @@ class Node:
 # Binary Tree Predictor
 class BinaryTreePredictor:
     def __init__(self, dec_fn=None, split_fn=None, stop_fn=None):
-        self.dec_fn = dec_fn  # Decision function
-        self.split_fn = split_fn  # Function for splitting data
-        self.stop_fn = stop_fn  # Stopping function for tree expansion
+        self.dec_fn = dec_fn
+        self.split_fn = split_fn
+        self.stop_fn = stop_fn
 
     def fit(self, X, y):
         pass
