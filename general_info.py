@@ -58,6 +58,10 @@ for column in dataset_dict_cleaned.columns:
         dataset_dict_cleaned[column].fillna(mode_value, inplace=True)
         print(f"Imputed missing values in column: {column} with mode value: {mode_value}")
 
+# Missing values test
+total_missing_after = dataset_dict_cleaned.isnull().sum().sum()  # Numero totale di valori mancanti nel dataset
+print(f"\nNumber of total missing values: {total_missing_after}")
+
 
 # ------------------------
 # Statistical Analysis - numeric columns
