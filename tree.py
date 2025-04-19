@@ -1,6 +1,11 @@
 import math
 import pandas as pd
 
+
+# ------------------------
+# Gini Impurity & Entropy function
+# ------------------------
+
 # A small epsilon to avoid log(0)
 eps = 1e-10
 
@@ -11,6 +16,11 @@ def gini_imp(p):
 # Entropy function
 def entropy(p):
     return -(p * math.log(p + eps) + (1 - p) * math.log(1 - p + eps))
+
+
+# ------------------------
+# structure for the nodes
+# ------------------------
 
 # Node class
 class Node:
@@ -38,6 +48,17 @@ class Node:
         self.add_sx(Node())
         self.add_dx(Node())
 
+
+
+    def evaluate(self, data_point):
+        if self.is_leaf:
+            return self.target
+        else:
+            if self.dec_fn(data_point): 
+                return self.sx.evaluate(data_point)
+            else:
+                return self.dx.evaluate(data_point)
+                
 # Binary Tree Predictor
 class BinaryTreePredictor:
     def __init__(self, dec_fn=None, split_fn=None, stop_fn=None):
@@ -56,15 +77,11 @@ def in_order(node):
     print(node.target)
     in_order(node.dx)
 
-# Main function
-if __name__ == "__main__":
 
-    dataset_dict = fetch_dataset()
+# Entropy
+print(f"Entropy at p=0: {entropy(0)}")
+print(f"Entropy at p=0.5: {entropy(0.5)}")
+print(f"Entropy at p=1: {entropy(1)}")
 
-    # Entropy
-    print(f"Entropy at p=0: {entropy(0)}")
-    print(f"Entropy at p=0.5: {entropy(0.5)}")
-    print(f"Entropy at p=1: {entropy(1)}")
-
-    # Gini Impurity - p=0.5
-    print(f"Gini Impurity at p=0.5: {gini_imp(0.5)}")
+# Gini Impurity - p=0.5
+print(f"Gini Impurity at p=0.5: {gini_imp(0.5)}")
