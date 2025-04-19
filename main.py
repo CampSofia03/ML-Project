@@ -1,4 +1,6 @@
-from data import fetch_dataset  
+# ------------------------
+# Main Funciton
+# ------------------------
 
 # Load Dataset
 dataset_dict = fetch_dataset()
