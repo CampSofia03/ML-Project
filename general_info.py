@@ -31,6 +31,34 @@ missing_data = missing_data[missing_data['Missing Values'] > 0]
 print(missing_data)
 
 
+# Bar Plot
+plt.figure(figsize=(10, 6))
+missing_data['Missing Percentage'].sort_values().plot(kind='barh', color='skyblue')
+plt.title('Percentage of Missing Values per Column')
+plt.xlabel('Missing Percentage (%)')
+plt.ylabel('Columns')
+plt.show()
+
+# ------------------------------
+# Handle missing values
+# ------------------------------
+
+# 1. Remove columns with more than 50% missing values
+threshold = 0.5
+columns_to_drop = missing_data[missing_data['Missing Percentage'] > threshold].index
+dataset_dict_cleaned = dataset_dict["X"].drop(columns=columns_to_drop)
+
+print(f"\nColumns removed: {columns_to_drop.tolist()}")
+
+# 2. Impute remaining missing values with mode
+for column in dataset_dict_cleaned.columns:
+    if dataset_dict_cleaned[column].isnull().sum() > 0:
+        # Impute missing values with mode
+        mode_value = dataset_dict_cleaned[column].mode()[0]
+        dataset_dict_cleaned[column].fillna(mode_value, inplace=True)
+        print(f"Imputed missing values in column: {column} with mode value: {mode_value}")
+
+
 # ------------------------
 # Statistical Analysis - numeric columns
 # ------------------------
