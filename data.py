@@ -6,13 +6,17 @@ from ucimlrepo import fetch_ucirepo
 # --------------------
 # Dataset Upload
 # --------------------
-
 def fetch_dataset(folder="dataset"):
-    # From dataset repo  https://shorturl.at/e1Mh1
     if os.path.exists(folder):
         X = pd.read_csv(os.path.join(folder, "X.csv"))
         y = pd.read_csv(os.path.join(folder, "y.csv"))
         variables = pd.read_csv(os.path.join(folder, "variables.csv"))
+        
+        # Rimuovi colonne con "Unnamed"
+        X = X.loc[:, ~X.columns.str.contains('^Unnamed')]
+        y = y.loc[:, ~y.columns.str.contains('^Unnamed')]
+        variables = variables.loc[:, ~variables.columns.str.contains('^Unnamed')]
+        
         metadata = None
         return {"X": X, "y": y, "metadata": metadata, "variables": variables}
 
@@ -28,18 +32,27 @@ def fetch_dataset(folder="dataset"):
     }
 
     os.makedirs(folder, exist_ok=True)
-    X.to_csv(os.path.join(folder, "X.csv"), index=False)
-    y.to_csv(os.path.join(folder, "y.csv"), index=False)
-    dataset["variables"].to_csv(os.path.join(folder, "variables.csv"), index=False)
+    X.to_csv(os.path.join(folder, "X.csv"), index=False)  # Ensure index=False
+    y.to_csv(os.path.join(folder, "y.csv"), index=False)  # Ensure index=False
+    dataset["variables"].to_csv(os.path.join(folder, "variables.csv"), index=False)  # Ensure index=False
 
     return dataset
+
 
 # --------------------
 # Preprocessing
 # --------------------
 
 def remove_ifnan(x):
-    return [x_ for x_ in x if isinstance(x_, str) or not np.isnan(x_)]
+    ret = []
+    for x_ in x:
+        if not isinstance(x_, str):
+            if not np.isnan(x_):
+                ret.append(x_)
+        else:
+            ret.append(x_)
+
+    return ret
 
 def preprocess_data(df, variables, filepath=None):
     if filepath is not None and not os.path.exists(filepath):
@@ -77,12 +90,3 @@ def main():
     )
 
     return dataset_dict
-
-
-# Load Dataset
-dataset_dict = fetch_dataset()
-dataset_dict["X"].head()
-
-print("\nNumber of samples:", len(dataset_dict["X"]))
-print("\nInfo variabiles:")
-print(dataset_dict["variables"])
