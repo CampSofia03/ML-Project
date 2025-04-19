@@ -6,12 +6,12 @@ print("\nNumber of samples:", len(dataset_dict["X"]))
 print("\nInfo variabiles:")
 print(dataset_dict["variables"])
 
-
 # ------------------------
 # Analyzing missing value 
 # ------------------------
 
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # Measures
 total_missing = dataset_dict["X"].isnull().sum().sum()
@@ -43,14 +43,14 @@ plt.show()
 # Handle missing values
 # ------------------------------
 
-# 1. Remove columns with more than 50% missing values
-threshold = 0.5
+# Remove columns with more than 50% missing values
+threshold = 50
 columns_to_drop = missing_data[missing_data['Missing Percentage'] > threshold].index
 dataset_dict_cleaned = dataset_dict["X"].drop(columns=columns_to_drop)
 
 print(f"\nColumns removed: {columns_to_drop.tolist()}")
 
-# 2. Impute remaining missing values with mode
+# Impute remaining missing values with mode
 for column in dataset_dict_cleaned.columns:
     if dataset_dict_cleaned[column].isnull().sum() > 0:
         # Impute missing values with mode
@@ -58,10 +58,13 @@ for column in dataset_dict_cleaned.columns:
         dataset_dict_cleaned[column].fillna(mode_value, inplace=True)
         print(f"Imputed missing values in column: {column} with mode value: {mode_value}")
 
+
 # Missing values test
-total_missing_after = dataset_dict_cleaned.isnull().sum().sum()  # Numero totale di valori mancanti nel dataset
+total_missing_after = dataset_dict_cleaned.isnull().sum().sum()
+
 print(f"\nNumber of total missing values: {total_missing_after}")
 
+dataset_dict["X"] = dataset_dict_cleaned
 
 # ------------------------
 # Statistical Analysis - numeric columns
