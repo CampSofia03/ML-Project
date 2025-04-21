@@ -1,26 +1,23 @@
+# ---------------------------------
+# Encode features & labels
+# ---------------------------------
+from sklearn.preprocessing import LabelEncoder
+
+X_encoded = dataset_dict["X"].apply(LabelEncoder().fit_transform)
+y_raw = dataset_dict["y"].values.ravel()
+le = LabelEncoder()
+y_encoded = le.fit_transform(y_raw)
+
+# Check if it's binary
+print("Encoded target classes:", np.unique(y_encoded))
+
+
+# ------------------------
+# Structure for the nodes
+# ------------------------
+
 import math
 import pandas as pd
-
-
-# ------------------------
-# Gini Impurity & Entropy function
-# ------------------------
-
-# A small epsilon to avoid log(0)
-eps = 1e-10
-
-# Gini Impurity function
-def gini_imp(p):
-    return 1 - (p**2 + (1 - p) ** 2)
-
-# Entropy function
-def entropy(p):
-    return -(p * math.log(p + eps) + (1 - p) * math.log(1 - p + eps))
-
-
-# ------------------------
-# structure for the nodes
-# ------------------------
 
 # Node class
 class Node:
@@ -48,8 +45,6 @@ class Node:
         self.add_sx(Node())
         self.add_dx(Node())
 
-
-
     def evaluate(self, data_point):
         if self.is_leaf:
             return self.target
@@ -58,30 +53,164 @@ class Node:
                 return self.sx.evaluate(data_point)
             else:
                 return self.dx.evaluate(data_point)
-                
-# Binary Tree Predictor
+
+# ------------------------
+# Decision Tree node
+# ------------------------              
+
+class TreeNode:
+    def __init__(self, depth=0):
+        self.feature_index = None
+        self.threshold = None
+        self.left = None
+        self.right = None
+        self.prediction = None
+        self.depth = depth
+
+# ------------------------
+# Gini Impurity & Entropy function
+# ------------------------
+
+# A small epsilon to avoid log(0)
+eps = 1e-10
+
+def gini(y):
+    probs = np.bincount(y) / len(y)
+    return 1 - np.sum(probs ** 2)
+
+def entropy(y):
+    counts = np.bincount(y)
+    probs = counts / len(y)
+    return -np.sum([p * np.log(p + 1e-10) for p in probs if p > 0])
+
+# ---------------------------------
+# Tree structure
+# ---------------------------------
+class TreeNode:
+    def __init__(self, depth=0):
+        self.feature_index = None
+        self.threshold = None
+        self.left = None
+        self.right = None
+        self.prediction = None
+        self.depth = depth
+
 class BinaryTreePredictor:
-    def __init__(self, dec_fn=None, split_fn=None, stop_fn=None):
-        self.dec_fn = dec_fn
-        self.split_fn = split_fn
-        self.stop_fn = stop_fn
+    def __init__(self, criterion="gini", max_depth=5, min_samples_split=2):
+        self.criterion = gini if criterion == "gini" else entropy
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.root = None
+
+    def _best_split(self, X, y):
+        best_feature, best_thresh, best_gain = None, None, -float('inf')
+        current_impurity = self.criterion(y)
+        n_samples, n_features = X.shape
+
+        for feature in range(n_features):
+            thresholds = np.unique(X[:, feature])
+            for t in thresholds:
+                left_mask = X[:, feature] <= t
+                right_mask = ~left_mask
+                if np.sum(left_mask) == 0 or np.sum(right_mask) == 0:
+                    continue
+                y_left, y_right = y[left_mask], y[right_mask]
+                weighted_impurity = (
+                    len(y_left)/len(y)*self.criterion(y_left) +
+                    len(y_right)/len(y)*self.criterion(y_right)
+                )
+                gain = current_impurity - weighted_impurity
+                if gain > best_gain:
+                    best_gain = gain
+                    best_feature = feature
+                    best_thresh = t
+
+        return best_feature, best_thresh
+
+    def _build_tree(self, X, y, depth=0):
+        node = TreeNode(depth=depth)
+        if (depth >= self.max_depth or
+            len(np.unique(y)) == 1 or
+            len(y) < self.min_samples_split):
+            node.prediction = Counter(y).most_common(1)[0][0]
+            return node
+
+        feature, threshold = self._best_split(X, y)
+        if feature is None:
+            node.prediction = Counter(y).most_common(1)[0][0]
+            return node
+
+        node.feature_index = feature
+        node.threshold = threshold
+        left_mask = X[:, feature] <= threshold
+        right_mask = ~left_mask
+        node.left = self._build_tree(X[left_mask], y[left_mask], depth+1)
+        node.right = self._build_tree(X[right_mask], y[right_mask], depth+1)
+        return node
 
     def fit(self, X, y):
-        pass
+        self.root = self._build_tree(np.array(X), np.array(y))
 
+    def _predict_one(self, x, node):
+        if node.prediction is not None:
+            return node.prediction
+        if x[node.feature_index] <= node.threshold:
+            return self._predict_one(x, node.left)
+        else:
+            return self._predict_one(x, node.right)
+
+    def predict(self, X):
+        return np.array([self._predict_one(x, self.root) for x in np.array(X)])
+
+# ---------------------------------
+# Fit & predict
+# ---------------------------------
+
+from collections import Counter
+
+tree = BinaryTreePredictor(criterion="entropy", max_depth=6)
+tree.fit(X_encoded, y_encoded)
+
+preds = tree.predict(X_encoded[:10])
+print("Predictions (first 10):", preds)
+
+
+# ---------------------------------
+# in_order traversal
+# ---------------------------------
 def in_order(node):
     if node is None:
         return
+    in_order(node.left)
+    if node.prediction is not None:
+        print(f"Leaf → Class: {node.prediction}")
+    in_order(node.right)
 
-    in_order(node.sx)
-    print(node.target)
-    in_order(node.dx)
+print("\nTree traversal:")
+in_order(tree.root)
+
+def print_tree(node, depth=0):
+    prefix = "  " * depth
+    if node.prediction is not None:
+        print(f"{prefix}Predict: {node.prediction}")
+    else:
+        print(f"{prefix}X[{node.feature_index}] <= {node.threshold}")
+        print_tree(node.left, depth + 1)
+        print_tree(node.right, depth + 1)
+
+print_tree(tree.root)
 
 
-# Entropy
-print(f"Entropy at p=0: {entropy(0)}")
-print(f"Entropy at p=0.5: {entropy(0.5)}")
-print(f"Entropy at p=1: {entropy(1)}")
+# ---------------------------------
+# Accuracy
+# ---------------------------------
 
-# Gini Impurity - p=0.5
-print(f"Gini Impurity at p=0.5: {gini_imp(0.5)}")
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+X_train, X_test, y_train, y_test = train_test_split(X_encoded, y_encoded, test_size=0.3, random_state=42)
+
+tree.fit(X_train, y_train)
+y_pred = tree.predict(X_test)
+
+print("Test Accuracy:", accuracy_score(y_test, y_pred))
