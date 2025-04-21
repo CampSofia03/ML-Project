@@ -11,7 +11,6 @@ y_encoded = le.fit_transform(y_raw)
 # Check if it's binary
 print("Encoded target classes:", np.unique(y_encoded))
 
-
 # ------------------------
 # Structure for the nodes
 # ------------------------
@@ -68,7 +67,7 @@ class TreeNode:
         self.depth = depth
 
 # ------------------------
-# Gini Impurity & Entropy function
+# Gini Impurity & Entropy function & Missclassification
 # ------------------------
 
 # A small epsilon to avoid log(0)
@@ -83,9 +82,16 @@ def entropy(y):
     probs = counts / len(y)
     return -np.sum([p * np.log(p + 1e-10) for p in probs if p > 0])
 
+def misclassification(y):
+    if len(y) == 0:
+        return 0
+    most_common = Counter(y).most_common(1)[0][1]
+    return 1 - (most_common / len(y))
+
 # ---------------------------------
 # Tree structure
 # ---------------------------------
+
 class TreeNode:
     def __init__(self, depth=0):
         self.feature_index = None
@@ -97,7 +103,15 @@ class TreeNode:
 
 class BinaryTreePredictor:
     def __init__(self, criterion="gini", max_depth=5, min_samples_split=2):
-        self.criterion = gini if criterion == "gini" else entropy
+        if criterion == "gini":
+            self.criterion = gini
+        elif criterion == "entropy":
+            self.criterion = entropy
+        elif criterion == "misclassification":
+            self.criterion = misclassification
+        else:
+            raise ValueError("Unsupported criterion.")
+        
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.root = None
@@ -168,12 +182,12 @@ class BinaryTreePredictor:
 
 from collections import Counter
 
-tree = BinaryTreePredictor(criterion="entropy", max_depth=6)
+tree = BinaryTreePredictor(criterion="misclassification", max_depth=6)
 tree.fit(X_encoded, y_encoded)
 
+# Predict first 10 samples
 preds = tree.predict(X_encoded[:10])
-print("Predictions (first 10):", preds)
-
+print("\nPredictions (first 10):", preds)
 
 # ---------------------------------
 # in_order traversal
@@ -186,8 +200,18 @@ def in_order(node):
         print(f"Leaf → Class: {node.prediction}")
     in_order(node.right)
 
-print("\nTree traversal:")
+print("\nTree traversal (in-order):")
 in_order(tree.root)
+
+# ---------------------------------
+# Training Error (0-1 Loss)
+# ---------------------------------
+
+def zero_one_loss(y_true, y_pred):
+    return np.mean(y_true != y_pred)
+
+train_loss = zero_one_loss(y_encoded, tree.predict(X_encoded))
+print("\nTraining Error (0-1 Loss):", train_loss)
 
 def print_tree(node, depth=0):
     prefix = "  " * depth
@@ -199,7 +223,6 @@ def print_tree(node, depth=0):
         print_tree(node.right, depth + 1)
 
 print_tree(tree.root)
-
 
 # ---------------------------------
 # Accuracy
