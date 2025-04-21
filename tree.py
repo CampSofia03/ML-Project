@@ -225,15 +225,40 @@ def print_tree(node, depth=0):
 print_tree(tree.root)
 
 # ---------------------------------
-# Accuracy
+# Accuracy Comparison
 # ---------------------------------
 
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+criteria = ["gini", "entropy", "misclassification"]
+results = []
 
-X_train, X_test, y_train, y_test = train_test_split(X_encoded, y_encoded, test_size=0.3, random_state=42)
+for crit in criteria:
+    print(f"\n=== Criterion: {crit.upper()} ===")
 
-tree.fit(X_train, y_train)
-y_pred = tree.predict(X_test)
+    tree = BinaryTreePredictor(criterion=crit, max_depth=6, min_samples_split=5)
+    tree.fit(X_train, y_train)
 
-print("Test Accuracy:", accuracy_score(y_test, y_pred))
+    # Predictions
+    train_preds = tree.predict(X_train)
+    test_preds = tree.predict(X_test)
+
+    # Errors
+    train_loss = zero_one_loss(y_train, train_preds)
+    test_loss = zero_one_loss(y_test, test_preds)
+
+    # Accuracy
+    train_acc = accuracy_score(y_train, train_preds)
+    test_acc = accuracy_score(y_test, test_preds)
+
+    # Store results
+    results.append({
+        "Criterion": crit,
+        "Train Accuracy": train_acc,
+        "Test Accuracy": test_acc,
+        "Train 0-1 Loss": train_loss,
+        "Test 0-1 Loss": test_loss
+    })
+
+    print(f"Train Accuracy: {train_acc:.4f} | Test Accuracy: {test_acc:.4f}")
+    print(f"Train 0-1 Loss: {train_loss:.4f} | Test 0-1 Loss: {test_loss:.4f}")
+    print("\nTree Structure:")
+    print_tree(tree.root)
