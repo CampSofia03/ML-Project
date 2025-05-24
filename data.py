@@ -11,12 +11,7 @@ def fetch_dataset(folder="dataset"):
         X = pd.read_csv(os.path.join(folder, "X.csv"))
         y = pd.read_csv(os.path.join(folder, "y.csv"))
         variables = pd.read_csv(os.path.join(folder, "variables.csv"))
-        
-        # Rimuovi colonne con "Unnamed"
-        X = X.loc[:, ~X.columns.str.contains('^Unnamed')]
-        y = y.loc[:, ~y.columns.str.contains('^Unnamed')]
-        variables = variables.loc[:, ~variables.columns.str.contains('^Unnamed')]
-        
+
         metadata = None
         return {"X": X, "y": y, "metadata": metadata, "variables": variables}
 
@@ -32,24 +27,31 @@ def fetch_dataset(folder="dataset"):
     }
 
     os.makedirs(folder, exist_ok=True)
-    X.to_csv(os.path.join(folder, "X.csv"), index=False)  # Ensure index=False
-    y.to_csv(os.path.join(folder, "y.csv"), index=False)  # Ensure index=False
-    dataset["variables"].to_csv(os.path.join(folder, "variables.csv"), index=False)  # Ensure index=False
+    X.to_csv(os.path.join(folder, "X.csv"), index=False)
+    y.to_csv(os.path.join(folder, "y.csv"), index=False)
+    dataset["variables"].to_csv(os.path.join(folder, "variables.csv"), index=False)
 
     return dataset
+    
+def preprocess_data(df, variables, filepath=None):
+    if filepath is not None and not os.path.exists(filepath):
+        variables = variables[variables.type == "Categorical"]
+        variables = variables[variables.role != "Target"]
 
+        CAT2IDX = {}
+        for col in variables.name:
+            uniques = remove_ifnan(df[col].unique())
+            CAT2IDX[col] = {uniques[idx]: idx for idx in range(len(uniques))}
+            if variables[variables.name == col].missing_values.values[0] == "yes":
+                CAT2IDX[col][np.nan] = -1
 
-# ------------------------
-# Main Funciton
-# ------------------------
+        for idx in range(len(df)):
+            for col in df.iloc[idx].index:
+              if col in CAT2IDX.keys():
+                    df.loc[idx, col] = CAT2IDX[col].get(df.loc[idx, col], -1)
 
-def main():
-    dataset_dict = fetch_dataset()
+        df.to_csv(filepath, index=False)
+        return df
 
-    dataset_dict["X"] = preprocess_data(
-        dataset_dict["X"],
-        dataset_dict["variables"],
-        filepath="dataset/preprocessed.csv",
-    )
-
-    return dataset_dict
+ 
+    return pd.read_csv(filepath)
