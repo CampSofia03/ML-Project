@@ -33,7 +33,7 @@ The model includes training, evaluation (accuracy, confusion matrix), and visual
 
 
 
-FILE -> 📄 [Download Mushroom Report PDF](Code_py3/Mashroom_Py3.pdf)
+FILE -> 📄📄 [Download Mushroom Report PDF](Mashroom_Py3.pdf)
 
 
 
