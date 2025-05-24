@@ -1,264 +1,297 @@
-# ---------------------------------
-# Encode features & labels
-# ---------------------------------
-from sklearn.preprocessing import LabelEncoder
-
-X_encoded = dataset_dict["X"].apply(LabelEncoder().fit_transform)
-y_raw = dataset_dict["y"].values.ravel()
-le = LabelEncoder()
-y_encoded = le.fit_transform(y_raw)
-
-# Check if it's binary
-print("Encoded target classes:", np.unique(y_encoded))
-
-# ------------------------
-# Structure for the nodes
-# ------------------------
-
-import math
+import os
+import numpy as np
 import pandas as pd
+from ucimlrepo import fetch_ucirepo
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.preprocessing import LabelEncoder
+import matplotlib.pyplot as plt
+import seaborn as sns
+from graphviz import Digraph
+import time
 
-# Node class
-class Node:
-    def __init__(self, dx=None, sx=None, dec_fn=None):
-        self.dx = dx
-        self.sx = sx
-        self.dec_fn = dec_fn  
 
-        self.is_leaf = self._update_leaf_status() 
-        self.target = None
-
-    def _update_leaf_status(self):
-        return self.dx is None and self.sx is None
-
-    def add_dx(self, node_dx):
-        self.dx = node_dx
-        self.is_leaf = self._update_leaf_status()
-
-    def add_sx(self, node_sx):
-        self.sx = node_sx
-        self.is_leaf = self._update_leaf_status()
-
-    def expand_node(self, dec_fn):
-        self.dec_fn = dec_fn
-        self.add_sx(Node())
-        self.add_dx(Node())
-
-    def evaluate(self, data_point):
-        if self.is_leaf:
-            return self.target
-        else:
-            if self.dec_fn(data_point): 
-                return self.sx.evaluate(data_point)
-            else:
-                return self.dx.evaluate(data_point)
-
-# ------------------------
-# Decision Tree node
-# ------------------------              
+# --------------------
+# Decision Tree Classes
+# --------------------
 
 class TreeNode:
-    def __init__(self, depth=0):
-        self.feature_index = None
-        self.threshold = None
-        self.left = None
-        self.right = None
-        self.prediction = None
-        self.depth = depth
+    def __init__(self, feature=None, threshold=None, left=None, right=None, value=None):
+        self.feature = feature
+        self.threshold = threshold
+        self.left = left
+        self.right = right
+        self.value = value
 
-# ------------------------
-# Gini Impurity & Entropy function & Missclassification
-# ------------------------
+    def is_leaf(self):
+        return self.value is not None
 
-# A small epsilon to avoid log(0)
-eps = 1e-10
-
-def gini(y):
-    probs = np.bincount(y) / len(y)
-    return 1 - np.sum(probs ** 2)
-
-def entropy(y):
-    counts = np.bincount(y)
-    probs = counts / len(y)
-    return -np.sum([p * np.log(p + 1e-10) for p in probs if p > 0])
-
-def misclassification(y):
-    if len(y) == 0:
-        return 0
-    most_common = Counter(y).most_common(1)[0][1]
-    return 1 - (most_common / len(y))
-
-# ---------------------------------
-# Tree structure
-# ---------------------------------
-
-class TreeNode:
-    def __init__(self, depth=0):
-        self.feature_index = None
-        self.threshold = None
-        self.left = None
-        self.right = None
-        self.prediction = None
-        self.depth = depth
-
-class BinaryTreePredictor:
-    def __init__(self, criterion="gini", max_depth=5, min_samples_split=2):
-        if criterion == "gini":
-            self.criterion = gini
-        elif criterion == "entropy":
-            self.criterion = entropy
-        elif criterion == "misclassification":
-            self.criterion = misclassification
-        else:
-            raise ValueError("Unsupported criterion.")
-        
+class DecisionTree:
+    
+    def __init__(self, max_depth=None, min_samples_split=2, entropy_threshold=None,
+                 max_leaf_nodes=None, split_function='gini', feature_names=None):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
+        self.entropy_threshold = entropy_threshold
+        self.max_leaf_nodes = max_leaf_nodes
+        self.feature_names = feature_names
         self.root = None
+        self.leaf_count = 0
 
-    def _best_split(self, X, y):
-        best_feature, best_thresh, best_gain = None, None, -float('inf')
-        current_impurity = self.criterion(y)
-        n_samples, n_features = X.shape
+        if split_function == 'gini':
+            self.criterion_func = self.gini
+        elif split_function == 'entropy':
+            self.criterion_func = self.entropy
+        elif split_function == 'scaled_entropy':
+            self.criterion_func = self.scaled_entropy
+        else:
+            raise ValueError("Unsupported criterion")
 
-        for feature in range(n_features):
-            thresholds = np.unique(X[:, feature])
-            for t in thresholds:
-                left_mask = X[:, feature] <= t
-                right_mask = ~left_mask
-                if np.sum(left_mask) == 0 or np.sum(right_mask) == 0:
-                    continue
-                y_left, y_right = y[left_mask], y[right_mask]
-                weighted_impurity = (
-                    len(y_left)/len(y)*self.criterion(y_left) +
-                    len(y_right)/len(y)*self.criterion(y_right)
-                )
-                gain = current_impurity - weighted_impurity
-                if gain > best_gain:
-                    best_gain = gain
-                    best_feature = feature
-                    best_thresh = t
-
-        return best_feature, best_thresh
-
-    def _build_tree(self, X, y, depth=0):
-        node = TreeNode(depth=depth)
-        if (depth >= self.max_depth or
-            len(np.unique(y)) == 1 or
-            len(y) < self.min_samples_split):
-            node.prediction = Counter(y).most_common(1)[0][0]
-            return node
-
-        feature, threshold = self._best_split(X, y)
-        if feature is None:
-            node.prediction = Counter(y).most_common(1)[0][0]
-            return node
-
-        node.feature_index = feature
-        node.threshold = threshold
-        left_mask = X[:, feature] <= threshold
-        right_mask = ~left_mask
-        node.left = self._build_tree(X[left_mask], y[left_mask], depth+1)
-        node.right = self._build_tree(X[right_mask], y[right_mask], depth+1)
-        return node
 
     def fit(self, X, y):
-        self.root = self._build_tree(np.array(X), np.array(y))
-
-    def _predict_one(self, x, node):
-        if node.prediction is not None:
-            return node.prediction
-        if x[node.feature_index] <= node.threshold:
-            return self._predict_one(x, node.left)
-        else:
-            return self._predict_one(x, node.right)
+        self.root = self.grow_tree(X, y)
 
     def predict(self, X):
-        return np.array([self._predict_one(x, self.root) for x in np.array(X)])
+        return np.array([self.predict_one(x, self.root) for x in X])
 
-# ---------------------------------
-# Fit & predict
-# ---------------------------------
+    def predict_one(self, x, node):
+        if node.is_leaf():
+            return node.value
+        if x[node.feature] <= node.threshold:
+            return self.predict_one(x, node.left)
+        return self.predict_one(x, node.right)
 
-from collections import Counter
+    def grow_tree(self, X, y, depth=0):
+        if (len(set(y)) == 1 or
+            len(y) < self.min_samples_split or
+            (self.max_depth is not None and depth >= self.max_depth) or
+            (self.entropy_threshold is not None and self.criterion_func(y) < self.entropy_threshold) or
+            (self.max_leaf_nodes is not None and self.leaf_count >= self.max_leaf_nodes)):
+            return TreeNode(value=self.most_common(y))
 
-tree = BinaryTreePredictor(criterion="misclassification", max_depth=6)
-tree.fit(X_encoded, y_encoded)
+        best_feat, best_thresh = self.best_split(X, y)
+        if best_feat is None:
+            return TreeNode(value=self.most_common(y))
 
-# Predict first 10 samples
-preds = tree.predict(X_encoded[:10])
-print("\nPredictions (first 10):", preds)
+        self.leaf_count += 1
+        left_idx = X[:, best_feat] <= best_thresh
+        right_idx = ~left_idx
+        left = self.grow_tree(X[left_idx], y[left_idx], depth + 1)
+        right = self.grow_tree(X[right_idx], y[right_idx], depth + 1)
 
-# ---------------------------------
-# in_order traversal
-# ---------------------------------
-def in_order(node):
-    if node is None:
-        return
-    in_order(node.left)
-    if node.prediction is not None:
-        print(f"Leaf → Class: {node.prediction}")
-    in_order(node.right)
+        return TreeNode(feature=best_feat, threshold=best_thresh, left=left, right=right)
 
-print("\nTree traversal (in-order):")
-in_order(tree.root)
+    def best_split(self, X, y):
+        best_gain, best_feat, best_thresh = -1, None, None
+        for feature in range(X.shape[1]):
+            thresholds = np.unique(X[:, feature])
+            for thresh in thresholds:
+                left_idx = X[:, feature] <= thresh
+                right_idx = ~left_idx
+                if len(y[left_idx]) == 0 or len(y[right_idx]) == 0:
+                    continue
+                gain = self.information_gain(y, y[left_idx], y[right_idx])
+                if gain > best_gain:
+                    best_gain, best_feat, best_thresh = gain, feature, thresh
+        return best_feat, best_thresh
 
-# ---------------------------------
-# Training Error (0-1 Loss)
-# ---------------------------------
+    def information_gain(self, parent, left, right):
+        weight_l = len(left) / len(parent)
+        weight_r = len(right) / len(parent)
+        return self.criterion_func(parent) - (weight_l * self.criterion_func(left) + weight_r * self.criterion_func(right))
 
-def zero_one_loss(y_true, y_pred):
-    return np.mean(y_true != y_pred)
+    def most_common(self, y):
+        return np.bincount(y).argmax()
 
-train_loss = zero_one_loss(y_encoded, tree.predict(X_encoded))
-print("\nTraining Error (0-1 Loss):", train_loss)
+    def gini(self, y):
+        probs = np.bincount(y) / len(y)
+        return 1 - np.sum(probs ** 2)
 
-def print_tree(node, depth=0):
-    prefix = "  " * depth
-    if node.prediction is not None:
-        print(f"{prefix}Predict: {node.prediction}")
-    else:
-        print(f"{prefix}X[{node.feature_index}] <= {node.threshold}")
-        print_tree(node.left, depth + 1)
-        print_tree(node.right, depth + 1)
+    def entropy(self, y):
+        probs = np.bincount(y) / len(y)
+        return -sum(p * np.log2(p + 1e-9) for p in probs if p > 0)
 
-print_tree(tree.root)
+    def scaled_entropy(self, y):
+        probs = np.bincount(y) / len(y)
+        return -sum((p / 2) * np.log2(p + 1e-9) for p in probs if p > 0)
 
-# ---------------------------------
-# Accuracy Comparison
-# ---------------------------------
+    def visualize(self):
+        dot = Digraph()
+        self.visualize_tree(self.root, dot)
+        return dot
 
-criteria = ["gini", "entropy", "misclassification"]
+    def visualize_tree(self, node, dot, parent_id=None, edge_label=""):
+        current_id = str(id(node))
+    
+        if node.is_leaf():
+            label = f"Predict: {node.value}"
+            dot.node(current_id, label, shape="ellipse", style="filled", fillcolor="lightgreen")
+        else:
+            name = self.feature_names[node.feature] if self.feature_names else f"X[{node.feature}]"
+            label = f"{name} <= {node.threshold}"
+            dot.node(current_id, label, shape="box", style="filled", fillcolor="lightblue")
+        if parent_id is not None:
+            dot.edge(parent_id, current_id, label=edge_label)
+        if node.left:
+            self.visualize_tree(node.left, dot, current_id, "True")
+        if node.right:
+            self.visualize_tree(node.right, dot, current_id, "False")
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+
+def main():
+
+    dataset = fetch_dataset()
+
+    if "Unnamed: 0" in dataset["X"].columns:
+        dataset["X"] = dataset["X"].drop(columns=["Unnamed: 0"])
+    if "Unnamed: 0" in dataset["y"].columns:
+        dataset["y"] = dataset["y"].drop(columns=["Unnamed: 0"])
+
+    # Feature and Target
+    X_raw = dataset["X"]
+    y_raw = dataset["y"]
+
+    # One-hot encoding - feature
+    X = pd.get_dummies(X_raw)
+
+    # Label encoding
+    y = LabelEncoder().fit_transform(y_raw.values.ravel().astype(str))
+
+    # Training and test set
+    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, stratify=y, random_state=42
+    )
+
+    X_train = X_train_raw.copy()
+    X_test = X_test_raw.reindex(columns=X_train.columns, fill_value=0)
+
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+        "feature_names": X_train.columns.tolist()
+    }
+import numpy as np
+from sklearn.metrics import accuracy_score, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+import time
+
+if __name__ == "__main__":
+    data = main()
+    X_train = data["X_train"].values
+    X_test = data["X_test"].values
+    y_train = data["y_train"]
+    y_test = data["y_test"]
+    feature_names = data["feature_names"]
+
+    for criterion in ['gini', 'entropy', 'scaled_entropy']:
+        print(f"\nUsing split function: {criterion}")
+        tree_model = DecisionTree(
+            max_depth=5,
+            min_samples_split=5,
+            entropy_threshold=0.01,
+            split_function=criterion,
+            feature_names=feature_names
+        )
+        
+        # Training
+        start_time = time.time()
+        tree_model.fit(X_train, y_train)
+        end_time = time.time()
+        print(f"Training time: {end_time - start_time:.2f} sec")
+
+        # Assessment
+        y_pred = tree_model.predict(X_test)
+        acc = accuracy_score(y_test, y_pred)
+        print(f"Test Accuracy: {acc:.4f}")
+        print(f"Zero-One Loss: {np.mean(y_pred != y_test):.4f}")
+
+        # Confusion matrix
+        cm = confusion_matrix(y_test, y_pred)
+        plt.figure(figsize=(6, 4))
+        sns.heatmap(cm, annot=True, cmap='Blues', fmt='d')
+        plt.xlabel("Predicted")
+        plt.ylabel("Actual")
+        plt.title(f"Confusion Matrix - {criterion}")
+        plt.tight_layout()
+        plt.show()
+
+        # Tree visualization
+        tree_graph = tree_model.visualize()
+        tree_graph.render(f"tree_visual_{criterion}", format="png", view=True)
+
+# ------------------------
+# Hyperparameter Tuning
+# ------------------------
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score
+
+split_criteria = ['gini', 'entropy', 'scaled_entropy']
+depth_range = [2, 3, 4, 5, 6, 7, 8, 9]
+
 results = []
 
-for crit in criteria:
-    print(f"\n=== Criterion: {crit.upper()} ===")
+for criterion in split_criteria:
+    for depth in depth_range:
+        #Model Preparation
+        tree = DecisionTree(
+            max_depth=depth,
+            min_samples_split=5,
+            entropy_threshold=0.01,
+            split_function=criterion,
+            feature_names=feature_names
+        )
 
-    tree = BinaryTreePredictor(criterion=crit, max_depth=6, min_samples_split=5)
-    tree.fit(X_train, y_train)
+        #Training
+        tree.fit(X_train, y_train)
 
-    # Predictions
-    train_preds = tree.predict(X_train)
-    test_preds = tree.predict(X_test)
+        #Assessment
+        y_train_pred = tree.predict(X_train)
+        y_test_pred = tree.predict(X_test)
+        train_acc = accuracy_score(y_train, y_train_pred)
+        test_acc = accuracy_score(y_test, y_test_pred)
 
-    # Errors
-    train_loss = zero_one_loss(y_train, train_preds)
-    test_loss = zero_one_loss(y_test, test_preds)
+        results.append({
+            "Criterion": criterion,
+            "Max Depth": depth,
+            "Train Accuracy": train_acc,
+            "Test Accuracy": test_acc,
+            "Overfitting Gap": train_acc - test_acc
+        })
 
-    # Accuracy
-    train_acc = accuracy_score(y_train, train_preds)
-    test_acc = accuracy_score(y_test, test_preds)
 
-    # Store results
-    results.append({
-        "Criterion": crit,
-        "Train Accuracy": train_acc,
-        "Test Accuracy": test_acc,
-        "Train 0-1 Loss": train_loss,
-        "Test 0-1 Loss": test_loss
-    })
+results_df = pd.DataFrame(results)
+results_df = results_df.sort_values(by=["Criterion", "Max Depth"])
+print(results_df.to_string(index=False))
 
-    print(f"Train Accuracy: {train_acc:.4f} | Test Accuracy: {test_acc:.4f}")
-    print(f"Train 0-1 Loss: {train_loss:.4f} | Test 0-1 Loss: {test_loss:.4f}")
-    print("\nTree Structure:")
-    print_tree(tree.root)
+#Visualization
+pivot = results_df.pivot(index="Criterion", columns="Max Depth", values="Test Accuracy")
+
+plt.figure(figsize=(8, 5))
+sns.heatmap(pivot, annot=True, fmt=".3f", cmap="YlGnBu")
+plt.title("Test Accuracy - Depth vs Criterion")
+plt.xlabel("Max Depth")
+plt.ylabel("Split Criterion")
+plt.tight_layout()
+plt.show()
+
+import pandas as pd
+
+results_df["Overfitting Gap"] = results_df["Train Accuracy"] - results_df["Test Accuracy"]
+
+#Best - test accuracy
+best_test_model = results_df.loc[results_df["Test Accuracy"].idxmax()]
+
+#Best - overfitting gap
+best_balanced_model = results_df.loc[results_df["Overfitting Gap"].abs().idxmin()]
+
+print("Best model - Test Accuracy max:")
+print(best_test_model)
+print("\nBalanced model - min overfitting gap:")
+print(best_balanced_model)
