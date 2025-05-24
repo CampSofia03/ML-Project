@@ -16,3 +16,12 @@ def main():
         "variables": dataset["variables"],
         "feature_names": X.columns.tolist()
     }
+
+
+# ------------------------
+# Main Funciton
+# ------------------------
+
+# Load Dataset
+dataset_dict = fetch_dataset()
+dataset_dict["X"].head()
