@@ -1,16 +1,18 @@
 # ------------------------
 # Main Funciton
 # ------------------------
+from sklearn.preprocessing import LabelEncoder
 
-# Load Dataset
-dataset_dict = fetch_dataset()
-dataset_dict["X"].head()
+def main():
+    dataset = fetch_dataset()
 
+    X = pd.get_dummies(dataset["X"])
 
+    y = LabelEncoder().fit_transform(dataset["y"].values.ravel())
 
-
-#from data import fetch_data
-
-#if __name__ == "__main__":
-    # Load Dataset
- #   dataset_dict = fetch_data()
+    return {
+        "X": X,
+        "y": y,
+        "variables": dataset["variables"],
+        "feature_names": X.columns.tolist()
+    }
