@@ -20,3 +20,11 @@ python data.py
 ```
 
 The dataset paper is at https://shorturl.at/3SLVm
+
+
+##ℹ️ General Info
+
+The project performs data inspection, handles missing values, and provides statistical summaries and visualizations of both categorical and numerical features to understand the dataset before modeling.
+
+
+
