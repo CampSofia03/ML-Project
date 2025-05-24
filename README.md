@@ -22,9 +22,14 @@ python data.py
 The dataset paper is at https://shorturl.at/3SLVm
 
 
-##ℹ️ General Info
+## ℹ️ General Info
 
 The project performs data inspection, handles missing values, and provides statistical summaries and visualizations of both categorical and numerical features to understand the dataset before modeling.
+
+## 🌲 Tree
+
+A custom decision tree classifier was implemented from scratch, supporting Gini, Entropy, and Scaled Entropy as split criteria.
+The model includes training, evaluation (accuracy, confusion matrix), and visualization. Hyperparameter tuning explores depth and splitting criteria to optimize performance and control overfitting.
 
 
 
